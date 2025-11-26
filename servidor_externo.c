@@ -8,13 +8,23 @@
 #include <time.h>
 #include <string.h>
 
-int main()
+int main(int argc, char *argv[])
 {
     int server_sockfd, client_sockfd;
     int server_len, client_len;
     struct sockaddr_in server_address;
     struct sockaddr_in client_address;
     char str_out[1024];
+
+    // Verifica se o usuário passou a porta
+    if (argc < 2) {
+        fprintf(stderr, "Uso correto: %s <porta>\n", argv[0]);
+        fprintf(stderr, "Exemplo: %s 9734\n", argv[0]);
+        exit(1);
+    }
+
+    // Converte o argumento (string) para inteiro
+    int porta = atoi(argv[1]); //ASCII to Integer
     
     // Configuração para gerar números aleatórios diferentes a cada execução
     srand(time(NULL)); 
@@ -30,7 +40,7 @@ int main()
     // 2. Definir o endereço do servidor
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = htonl(INADDR_ANY); // Aceita conexões de qualquer IP
-    server_address.sin_port = htons(9734); // Porta definida
+    server_address.sin_port = htons(porta); // Porta definida
     server_len = sizeof(server_address);
 
     // 3. Ligar o socket ao endereço (Bind)
@@ -41,8 +51,8 @@ int main()
 
     // 4. Ouvir conexões (Listen)
     listen(server_sockfd, 5);
-    printf("Servidor Externo de Cotacoes rodando na porta 9734...\n");
-
+    printf("Servidor Externo rodando na porta %d...\n", porta);
+    
     while(1) {
         // 5. Aceitar conexão
         client_len = sizeof(client_address);
