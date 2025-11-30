@@ -9,32 +9,86 @@
 
 #define PORT 8080
 
-// Lógica Mock
-float get_mock_price(char *coin) {
-    float random_factor = ((float)rand()/(float)(RAND_MAX)) * 500.0; 
-    if (strstr(coin, "BTC") != NULL) return 60000.0 + random_factor;
-    if (strstr(coin, "ETH") != NULL) return 3000.0 + (random_factor / 10.0);
+// --- CONFIGURAÇÕES DE CAOS ---
+#define CHANCE_FALHA 20    // 25% de chance de dar erro
+#define MAX_LATENCIA 1    // Até 10 segundos de atraso na resposta
+
+// --- ESTADO DO MERCADO (Simulação) ---
+// Variáveis globais para manter o preço estável por um tempo
+float preco_btc_atual = 60000.00;
+float preco_eth_atual = 3000.00;
+time_t ultima_atualizacao = 0;
+int intervalo_proxima_mudanca = 0; // Segundos até o preço mudar de novo
+
+// Função para atualizar preços baseado em tempo randômico
+void atualizar_mercado_se_necessario() {
+    time_t agora = time(NULL);
+    
+    // Se for a primeira vez ou se o tempo randômico já passou
+    if (ultima_atualizacao == 0 || (agora - ultima_atualizacao) > intervalo_proxima_mudanca) {
+        
+        // Gera nova variação (+/- 2.5%)
+        float fator_btc = 1.0 + (((float)rand() / RAND_MAX) * 0.05 - 0.025);
+        float fator_eth = 1.0 + (((float)rand() / RAND_MAX) * 0.05 - 0.025);
+        
+        preco_btc_atual *= fator_btc;
+        preco_eth_atual *= fator_eth;
+        
+        // Define quando será a próxima mudança (entre 1 e 5 segundos)
+        ultima_atualizacao = agora;
+        intervalo_proxima_mudanca = (rand() % 5) + 1;
+        
+        printf("[MERCADO] Preços atualizados! Próxima mudança em %ds\n", intervalo_proxima_mudanca);
+        printf("          BTC: %.2f | ETH: %.2f\n", preco_btc_atual, preco_eth_atual);
+    }
+}
+
+// Retorna o preço atual (mantido em memória)
+float get_price(char *coin) {
+    atualizar_mercado_se_necessario();
+    
+    if (strstr(coin, "BTC") != NULL) return preco_btc_atual;
+    if (strstr(coin, "ETH") != NULL) return preco_eth_atual;
     return 0.0; 
 }
 
 void handle_client(int socket) {
     char buffer[1024] = {0};
-    char response[1024] = {0};
+    // CORREÇÃO 1: Aumentado para 2048 para evitar warning de truncamento
+    char response[2048] = {0}; 
     
-    // recv() é a chamada padrão para receber dados em sockets TCP
+    // --- SIMULAÇÃO DE LATÊNCIA (Demora para responder) ---
+    // O Circuit Breaker deve detectar se isso for muito alto (timeout)
+    int latencia = rand() % (MAX_LATENCIA + 1);
+    if (latencia > 0) {
+        printf("[CAOS] Simulando latência de %ds...\n", latencia);
+        sleep(latencia);
+    }
+
+    // --- SIMULAÇÃO DE FALHA (Erro na conexão) ---
+    // O Circuit Breaker deve detectar isso como erro e abrir o circuito
+    int sorteio_falha = rand() % 100;
+    if (sorteio_falha < CHANCE_FALHA) {
+        printf("[CAOS] Simulando CRASH/ERRO 500 para este cliente!\n");
+        // Podemos fechar sem enviar nada (crash) ou enviar lixo
+        close(socket);
+        return;
+    }
+
+    // --- FLUXO NORMAL ---
     int valread = recv(socket, buffer, 1024, 0);
     
     if (valread > 0) {
-        // Remove quebra de linha que pode vir do telnet/nc
         buffer[strcspn(buffer, "\r\n")] = 0;
-        
         printf("-> Pedido: %s\n", buffer);
-        float price = get_mock_price(buffer);
+        
+        float price = get_price(buffer);
         
         if (price > 0) {
-            sprintf(response, "{\"coin\": \"%s\", \"price\": %.2f}", buffer, price);
+            snprintf(response, sizeof(response), "{\"coin\": \"%s\", \"price\": %.2f}", buffer, price);
         } else {
-            sprintf(response, "{\"error\": \"Moeda invalida\"}");
+            // CORREÇÃO 2: Retornar erro JSON válido em vez de repetir o preço 0
+            snprintf(response, sizeof(response), "{\"error\": \"Moeda invalida\"}");
         }
 
         send(socket, response, strlen(response), 0);
@@ -55,7 +109,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
     
-    // Opção para evitar erro de porta presa ao reiniciar
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
@@ -75,7 +128,11 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Servidor Mock Cripto ouvindo na porta %d...\n", PORT);
+    printf("=== MOCK CRIPTO EXCHANGE ===\n");
+    printf("Porta: %d\n", PORT);
+    printf("Chance de Falha: %d%%\n", CHANCE_FALHA);
+    printf("Latência Max: %ds\n", MAX_LATENCIA);
+    printf("============================\n");
 
     while(1) {
         int new_socket;

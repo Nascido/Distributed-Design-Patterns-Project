@@ -1,30 +1,32 @@
+# Makefile
+
+# Compilador e Flags
 CC = gcc
-CFLAGS = -Wall -Wextra -O2
+CFLAGS = -Wall -Wextra -g -I./src/primary 
 
-BIN_DIR = bin
-EXT_BIN_DIR = $(BIN_DIR)/externo
-
+# Diretórios
 SRC_DIR = src
-EXT_SRC_DIR = $(SRC_DIR)/externo
+BIN_DIR = bin
 
-TARGETS = $(BIN_DIR)/agregador $(BIN_DIR)/circuit_breaker \
-		  $(EXT_BIN_DIR)/servidor_externo $(EXT_BIN_DIR)/clientes
+# Criar diretório bin se não existir
+$(shell mkdir -p $(BIN_DIR))
 
-.PHONY: all clean
+# --- Targets (Alvos de Compilação) ---
 
-all: $(TARGETS)
+all: external primary shard
 
-$(BIN_DIR)/%: $(SRC_DIR)/%.c | $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $<
+# 1. Compila o Servidor Externo (Mock) -> cripto_server.run
+external: $(SRC_DIR)/external/cripto_server.c
+	$(CC) $(CFLAGS) $< -o $(BIN_DIR)/cripto_server.run
 
-$(EXT_BIN_DIR)/%: $(EXT_SRC_DIR)/%.c | $(EXT_BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $<
+# 2. Compila o Serviço Primário -> servico_primario.run
+primary: $(SRC_DIR)/services/primary_server.c $(SRC_DIR)/services/circuit_breaker.c
+	$(CC) $(CFLAGS) $^ -o $(BIN_DIR)/primary_server.run
 
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+# 3. Compila o Shard (Banco de Dados) -> db_server.run
+shard: $(SRC_DIR)/shards/db_server.c
+	$(CC) $(CFLAGS) $< -o $(BIN_DIR)/db_server.run
 
-$(EXT_BIN_DIR):
-	mkdir -p $(EXT_BIN_DIR)
-
+# Limpeza
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR)/*.run

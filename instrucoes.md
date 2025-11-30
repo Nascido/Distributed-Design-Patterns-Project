@@ -1,40 +1,36 @@
-## servidor_externo.c 
-Representa uma Bolsa de Valores ou uma API financeira internacional. Ele detém os dados reais. É um sistema de terceiros, ele pode ficar lento, cair ou ser desligado para manutenção.
+## cripto_server.c
+Serviço externo que representa uma Bolsa de Valores ou API financeira. Mantém as cotações reais e pode apresentar intermitência (latência, falhas ou manutenção). O `primary_server` consulta este serviço para obter preços em tempo real.
 
-## circuit_breaker.c (disjuntor)
-"Serviço de Cotações". Ele é um intermediário. A função dele é ir buscar o preço no serviço externo  e trazer para dentro do sistema.
-Lida com possíveis quedas ou desligamento do servidor externo impedindo o acumulo de processos travados, a espera de um servidor que não responde. Impede o connect quando circuito aberto
+## primary_server.c
+Serviço central que recebe atualizações do `cripto_server`, persiste dados em shards e atende clientes finais. Principais responsabilidades:
 
-relação com o trabalho:
-"O motor de cotações primário depende de um serviço externo. Se este serviço falhar ou ficar lento, ele não pode derrubar todo o sistema."
+- Publicar atualizações por tópico (Pub/Sub) e gerenciar assinaturas de clientes.
+- Roteamento e persistência em shards por criptomoeda (ex.: BTC, ETH).
+- Responder a consultas: `media_historica` (agrega dados de todos os shards) e `cotacao_atual(X)` (consulta o serviço externo ou usa histórico como fallback).
 
+### Circuit Breaker
 
-# Testar comportamento do circuit breaker
-1. rodar servidor externo
-2. rodar circuit breaker
-- veremos de tempos em tempos as quotacoes no terminal
-3. desligar o servidor externo
-- notaremos que o circuit breaker faz 3 tentativas de obtenção da quotacao e entao entra em estado aberto
-4. reativar serviço externo
-- notaremos que o circuit breaker entra em estado meio aberto, se reconecta e recebe as quotações novamente
+O padrão *Circuit Breaker* protege o `primary_server` de chamadas repetidas a um serviço externo instável (`cripto_server`) evitando gasto desnecessário de recursos e melhorando a latência percebida pelos clientes.
 
-## Scatter/Gather -> dividir para conquistar!
-
-relação com o trabalho:
-"O sistema deve ser capaz de responder rapidamente a uma consulta complexa, como 'Obter o preço médio atual [...] combinando ambos em uma única resposta'."
+- **Como funciona aqui:** Antes de cada consulta ao mock externo o código verifica `cb_allow_request(&cb_mock)`. Se o circuito estiver aberto a chamada não é tentada (fail-fast) e a função retorna um erro imediato. Chamadas que falham acionam `cb_record_failure(&cb_mock)`; chamadas bem-sucedidas acionam `cb_record_success(&cb_mock)`, que restauram o circuito.
+- **Parâmetros usados:** neste projeto o circuito é inicializado com `cb_init(&cb_mock, 3, 10)`, ou seja, 3 falhas consecutivas abrem o circuito e ele fica aberto por 10 segundos antes de permitir nova tentativa.
+- **Benefício prático:** reduz tentativas redundantes a serviços fora do ar, protege recursos locais e fornece resposta rápida (erro imediato) ao cliente quando a dependência está indisponível.
 
 
-# Como executar:
+### Pub/Sub
+Ao conectar-se, o cliente é inscrito por padrão para receber todas as cotações; pode alterar a assinatura com:
 
-rodar servidor externo:
-src/externo/servidor_mock_cripto.c -o bin/externo/servidor_mock_cripto
-./bin/externo/servidor_mock_cripto
+```
+SUBSCRIBE X
+```
 
-rodar servidor cotacao:
-gcc src/servidor_cotacao.c -o bin/servidor_cotacao
-./bin/servidor_cotacao
+Onde `X` pode ser `BTC`, `ETH` ou `TODOS`.
 
-rodar cliente
-nc 127.0.0.1 9090
-no mesmo terminal que foi feia a conexao do cliente, pode executar chamadas como "cotacao_atual(BTC)"
+### Sharding + Scatter/Gather
+As atualizações são particionadas por criptomoeda em shards distintos (ex.: um shard para `BTC`, outro para `ETH`).
+
+- **Armazenamento:** o `primary_server` roteia gravações para o shard apropriado com base na chave (criptomoeda).
+- **Consulta `media_historica`:** realiza consultas paralelas (scatter) aos shards e agrega (gather) os resultados para calcular médias.
+- **Fallback `cotacao_atual`:** se o serviço externo falhar, o `primary_server` consulta apenas o shard da moeda requisitada para responder.
+
 
