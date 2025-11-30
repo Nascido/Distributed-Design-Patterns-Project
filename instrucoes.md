@@ -22,3 +22,19 @@ relação com o trabalho:
 
 relação com o trabalho:
 "O sistema deve ser capaz de responder rapidamente a uma consulta complexa, como 'Obter o preço médio atual [...] combinando ambos em uma única resposta'."
+
+
+# Como executar:
+
+rodar servidor externo:
+src/externo/servidor_mock_cripto.c -o bin/externo/servidor_mock_cripto
+./bin/externo/servidor_mock_cripto
+
+rodar servidor cotacao:
+gcc src/servidor_cotacao.c -o bin/servidor_cotacao
+./bin/servidor_cotacao
+
+rodar cliente
+nc 127.0.0.1 9090
+no mesmo terminal que foi feia a conexao do cliente, pode executar chamadas como "cotacao_atual(BTC)"
+
