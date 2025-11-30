@@ -322,7 +322,6 @@ int main() {
                 }
             }
         }
-        // Loop de clientes... (igual ao seu original)
          for (int i = 1; i < nfds; i++) {
             if (fds[i].fd != -1 && (fds[i].revents & POLLIN)) {
                 char buffer[1024] = {0};

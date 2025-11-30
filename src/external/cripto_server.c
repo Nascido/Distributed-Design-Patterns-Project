@@ -9,32 +9,26 @@
 
 #define PORT 8080
 
-// --- CONFIGURAÇÕES DE CAOS ---
-#define CHANCE_FALHA 20    // 25% de chance de dar erro
-#define MAX_LATENCIA 1    // Até 10 segundos de atraso na resposta
+#define CHANCE_FALHA 20    
+#define MAX_LATENCIA 1    
 
-// --- ESTADO DO MERCADO (Simulação) ---
-// Variáveis globais para manter o preço estável por um tempo
+
 float preco_btc_atual = 60000.00;
 float preco_eth_atual = 3000.00;
 time_t ultima_atualizacao = 0;
-int intervalo_proxima_mudanca = 0; // Segundos até o preço mudar de novo
+int intervalo_proxima_mudanca = 0;
 
-// Função para atualizar preços baseado em tempo randômico
 void atualizar_mercado_se_necessario() {
     time_t agora = time(NULL);
     
-    // Se for a primeira vez ou se o tempo randômico já passou
     if (ultima_atualizacao == 0 || (agora - ultima_atualizacao) > intervalo_proxima_mudanca) {
         
-        // Gera nova variação (+/- 2.5%)
         float fator_btc = 1.0 + (((float)rand() / RAND_MAX) * 0.05 - 0.025);
         float fator_eth = 1.0 + (((float)rand() / RAND_MAX) * 0.05 - 0.025);
         
         preco_btc_atual *= fator_btc;
         preco_eth_atual *= fator_eth;
         
-        // Define quando será a próxima mudança (entre 1 e 5 segundos)
         ultima_atualizacao = agora;
         intervalo_proxima_mudanca = (rand() % 5) + 1;
         
@@ -43,7 +37,6 @@ void atualizar_mercado_se_necessario() {
     }
 }
 
-// Retorna o preço atual (mantido em memória)
 float get_price(char *coin) {
     atualizar_mercado_se_necessario();
     
@@ -54,11 +47,9 @@ float get_price(char *coin) {
 
 void handle_client(int socket) {
     char buffer[1024] = {0};
-    // CORREÇÃO 1: Aumentado para 2048 para evitar warning de truncamento
     char response[2048] = {0}; 
     
     // --- SIMULAÇÃO DE LATÊNCIA (Demora para responder) ---
-    // O Circuit Breaker deve detectar se isso for muito alto (timeout)
     int latencia = rand() % (MAX_LATENCIA + 1);
     if (latencia > 0) {
         printf("[CAOS] Simulando latência de %ds...\n", latencia);
@@ -66,11 +57,9 @@ void handle_client(int socket) {
     }
 
     // --- SIMULAÇÃO DE FALHA (Erro na conexão) ---
-    // O Circuit Breaker deve detectar isso como erro e abrir o circuito
     int sorteio_falha = rand() % 100;
     if (sorteio_falha < CHANCE_FALHA) {
         printf("[CAOS] Simulando CRASH/ERRO 500 para este cliente!\n");
-        // Podemos fechar sem enviar nada (crash) ou enviar lixo
         close(socket);
         return;
     }
@@ -87,7 +76,6 @@ void handle_client(int socket) {
         if (price > 0) {
             snprintf(response, sizeof(response), "{\"coin\": \"%s\", \"price\": %.2f}", buffer, price);
         } else {
-            // CORREÇÃO 2: Retornar erro JSON válido em vez de repetir o preço 0
             snprintf(response, sizeof(response), "{\"error\": \"Moeda invalida\"}");
         }
 
@@ -98,12 +86,11 @@ void handle_client(int socket) {
 }
 
 int main() {
-    srand(time(NULL)); // Inicializa semente randomica
+    srand(time(NULL));
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
 
-    // 1. Socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("Socket failed");
         exit(EXIT_FAILURE);
@@ -112,7 +99,6 @@ int main() {
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    // 2. Bind
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
@@ -122,7 +108,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // 3. Listen
     if (listen(server_fd, 3) < 0) {
         perror("Listen failed");
         exit(EXIT_FAILURE);
@@ -136,7 +121,6 @@ int main() {
 
     while(1) {
         int new_socket;
-        // 4. Accept
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
                            (socklen_t*)&addrlen)) < 0) {
             perror("Accept failed");

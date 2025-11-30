@@ -1,7 +1,18 @@
 
-# Distributed Design Patterns Project - Trabalho 2 de Programação Paralela e Distribuída
+# Trabalho 2 de Programação Paralela e Distribuída
 
-## Visão geral
+> **Disciplina:** INE5645 - Programação Paralela e Distribuída (UFSC)  
+> **Semestre:** 2025/2
+
+## Sobre o Projeto
+Este repositório contém a implementação da infraestrutura central de um sistema de cotações financeiras em tempo real. O projeto foi desenvolvido com o objetivo acadêmico de explorar e aplicar **Padrões de Projeto para Sistemas Distribuídos** (Distributed Design Patterns) para mitigar desafios de escalabilidade, disponibilidade e latência.
+
+Desenvolvido em **C** utilizando **Sockets TCP/IP** e **I/O Multiplexing**, o sistema simula um ambiente de alta performance resiliente a falhas, implementando manualmente os seguintes padrões arquiteturais:
+
+* **Circuit Breaker:** Proteção contra falhas em cascata e latência de serviços externos.
+* **Pub/Sub (Publisher/Subscriber):** Difusão assíncrona de atualizações de preços para múltiplos clientes.
+* **Sharding (Particionamento):** Distribuição de persistência de dados baseada em chaves (moedas) para balanceamento de carga.
+* **Scatter/Gather:** Processamento paralelo de consultas complexas e agregação de resultados.
 
 ## cripto_server.c
 Serviço externo que representa uma Bolsa de Valores ou API financeira. Mantém as cotações reais e pode apresentar intermitência (latência, falhas ou manutenção). O `primary_server` consulta este serviço para obter preços em tempo real.
