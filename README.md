@@ -1,5 +1,5 @@
 
-# Distributed Design Patterns Project
+# Distributed Design Patterns Project - Trabalho 2 de Programação Paralela e Distribuída
 
 ## Visão geral
 
