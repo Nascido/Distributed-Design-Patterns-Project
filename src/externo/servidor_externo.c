@@ -11,7 +11,7 @@
 int main(int argc, char *argv[])
 {
     int server_sockfd, client_sockfd;
-    int server_len, client_len;
+    socklen_t server_len, client_len;
     struct sockaddr_in server_address;
     struct sockaddr_in client_address;
     char str_out[1024];
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
         // sleep(1); 
 
         // 6. Enviar dados
-        write(client_sockfd, str_out, strlen(str_out));
+        (void)write(client_sockfd, str_out, strlen(str_out));
         printf("Cotacao enviada: %s\n", str_out);
 
         // 7. Fechar conexão com este cliente específico
